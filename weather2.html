@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Summerville Weather Widget</title>
+    <style>
+        :root {
+            --sky-top: #87CEEB; --sky-bottom: #E0F7FA;
+            --sun-color: #FFEB3B; --sun-glow: rgba(255, 235, 59, 0.6);
+            --ocean-color: rgba(79, 172, 254, 0.5);
+            --star-opacity: 0; --moon-phase-offset: 100%;
+        }
+
+        body { 
+            margin: 0; display: flex; justify-content: center; align-items: center; 
+            height: 100vh; font-family: 'Inter', -apple-system, sans-serif; 
+            background: transparent; overflow: hidden;
+        }
+
+        .weather-widget { 
+            width: 320px; height: 480px; border-radius: 30px; 
+            overflow: hidden; position: relative; box-shadow: 0 20px 40px rgba(0,0,0,0.15); 
+        }
+
+        .beach-bg { 
+            width: 100%; height: 100%; 
+            background: linear-gradient(to bottom, var(--sky-top), var(--sky-bottom)); 
+            position: relative; transition: all 2s ease; 
+        }
+
+        .stars { 
+            position: absolute; width: 100%; height: 50%; 
+            background-image: radial-gradient(white 1px, transparent 0); 
+            background-size: 30px 30px; opacity: var(--star-opacity); transition: opacity 2s ease; 
+        }
+
+        .celestial { 
+            position: absolute; width: 60px; height: 60px; border-radius: 50%; 
+            background: var(--sun-color); box-shadow: 0 0 40px var(--sun-glow); 
+            transition: all 2s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex; align-items: center; justify-content: center; overflow: hidden;
+        }
+
+        .moon-clipper { width: 100%; height: 100%; border-radius: 50%; position: relative; background: inherit; display: none; }
+        .moon-clipper::after { 
+            content: ''; position: absolute; width: 100%; height: 100%; 
+            background: rgba(0,0,0,0.7); left: var(--moon-phase-offset); transition: left 2s ease; 
+        }
+
+        .ocean-layer { position: absolute; width: 150%; height: 200px; left: -25%; border-radius: 50%; transition: background 2s ease; }
+        .l1 { background: var(--ocean-color); bottom: 130px; transform: rotate(-3deg); opacity: 0.4; }
+        .l2 { background: var(--ocean-color); bottom: 110px; transform: rotate(3deg); }
+        .sand-dune { position: absolute; bottom: -30px; width: 130%; height: 240px; background: #ffffff; left: -15%; border-radius: 50%; }
+
+        .weather-card { 
+            position: absolute; bottom: 0; width: 100%; height: 220px; 
+            background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); 
+            display: flex; flex-direction: column; align-items: center; padding-top: 20px; 
+        }
+
+        .location { font-size: 11px; font-weight: 800; letter-spacing: 2px; color: #999; text-transform: uppercase; }
+        .temp { font-size: 64px; font-weight: 200; color: #222; margin: -5px 0; }
+        .condition { font-size: 16px; color: #555; margin-bottom: 5px; font-weight: 500; }
+        .main-details { font-size: 13px; display: flex; gap: 15px; color: #aaa; margin-bottom: 20px; }
+        .extra-info { width: 85%; display: flex; justify-content: space-around; border-top: 1px solid rgba(0,0,0,0.05); padding-top: 15px; }
+        .info-item { display: flex; flex-direction: column; align-items: center; }
+        .label { font-size: 10px; font-weight: 700; color: #bbb; letter-spacing: 1px; }
+        .val { font-size: 17px; font-weight: 600; color: #444; }
+    </style>
+</head>
+<body>
+
+<div class="weather-widget">
+    <div class="beach-bg">
+        <div id="stars" class="stars"></div>
+        <div id="celestial" class="celestial">
+            <div id="moon-clipper" class="moon-clipper"></div>
+        </div>
+        <div class="ocean-layer l1"></div>
+        <div class="ocean-layer l2"></div>
+        <div class="sand-dune"></div>
+    </div>
+    <div class="weather-card">
+        <div class="location">Summerville, SC</div>
+        <div id="temp" class="temp">--°</div>
+        <div id="condition" class="condition">Loading...</div>
+        <div class="main-details">
+            <span id="high">H: --°</span>
+            <span id="low">L: --°</span>
+        </div>
+        <div class="extra-info">
+            <div class="info-item">
+                <span class="label">FEELS LIKE</span>
+                <span id="feels-like" class="val">--°</span>
+            </div>
+            <div class="info-item">
+                <span class="label">WIND</span>
+                <span id="wind" class="val">-- mph</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const lat = 33.02, lon = -80.17;
+
+const weatherCodes = {
+    0: "Clear Sky", 1: "Mainly Clear", 2: "Partly Cloudy", 3: "Overcast",
+    45: "Foggy", 48: "Rime Fog", 51: "Light Drizzle", 53: "Drizzle",
+    55: "Dense Drizzle", 61: "Slight Rain", 63: "Moderate Rain", 65: "Heavy Rain",
+    71: "Slight Snow", 73: "Moderate Snow", 75: "Heavy Snow", 95: "Thunderstorm"
+};
+
+function getMoonPhaseOffset() {
+    const lp = 2551443; 
+    const new_moon = new Date(1970, 0, 7, 20, 35, 0);
+    const phase = ((new Date().getTime() - new_moon.getTime()) / 1000) % lp;
+    const daysIntoCycle = phase / (24 * 3600);
+    // 0 = New, 14.7 = Full, 29.5 = New. Map to -100% to 100%
+    return ((daysIntoCycle / 29.53) * 200 - 100) + "%";
+}
+
+function updateVisuals(weatherCode, sunriseStr, sunsetStr) {
+    const root = document.documentElement;
+    const cel = document.getElementById('celestial');
+    const clip = document.getElementById('moon-clipper');
+    
+    const now = new Date();
+    const sunrise = new Date(sunriseStr);
+    const sunset = new Date(sunsetStr);
+    
+    // Define "Golden Hour" as 45 minutes before/after sunset
+    const goldenHourStart = new Date(sunset.getTime() - (45 * 60000));
+    const nightStart = new Date(sunset.getTime() + (45 * 60000));
+    const dayStart = new Date(sunrise.getTime() + (45 * 60000));
+
+    const isStormy = weatherCode >= 51;
+    let isNight = now < sunrise || now > nightStart;
+    let isSunset = now >= goldenHourStart && now <= nightStart;
+
+    // 1. Theme Logic
+    if (isStormy) {
+        root.style.setProperty('--sky-top', '#4a5568'); 
+        root.style.setProperty('--sky-bottom', '#a0aec0');
+        root.style.setProperty('--sun-color', 'transparent'); 
+        root.style.setProperty('--ocean-color', '#2d3748');
+    } else if (isNight) {
+        root.style.setProperty('--sky-top', '#0c1445'); 
+        root.style.setProperty('--sky-bottom', '#2b3054');
+        root.style.setProperty('--sun-color', '#f4f4f4'); 
+        root.style.setProperty('--sun-glow', 'rgba(255,255,255,0.2)');
+        root.style.setProperty('--star-opacity', '0.8'); 
+        root.style.setProperty('--ocean-color', '#1a202c');
+        clip.style.display = 'block'; 
+        root.style.setProperty('--moon-phase-offset', getMoonPhaseOffset());
+    } else if (isSunset) {
+        root.style.setProperty('--sky-top', '#ff7e5f');
+        root.style.setProperty('--sky-bottom', '#feb47b');
+        root.style.setProperty('--sun-color', '#ffecd2');
+        root.style.setProperty('--star-opacity', '0');
+        root.style.setProperty('--ocean-color', 'rgba(132, 113, 187, 0.65)');
+        clip.style.display = 'none';
+    } else {
+        root.style.setProperty('--sky-top', '#87CEEB');
+        root.style.setProperty('--sky-bottom', '#E0F7FA');
+        root.style.setProperty('--sun-color', '#FFEB3B');
+        root.style.setProperty('--star-opacity', '0');
+        root.style.setProperty('--ocean-color', 'rgba(79, 172, 254, 0.5)');
+        clip.style.display = 'none';
+    }
+
+    // 2. Position Logic (Sun/Moon arc)
+    // We calculate "progress" between sunrise and sunset
+    let progress;
+    if (!isNight) {
+        progress = (now - sunrise) / (sunset - sunrise);
+    } else {
+        // Simple progress for moon arc at night
+        const hours = now.getHours();
+        progress = hours < 6 ? (hours + 4) / 10 : (hours - 20) / 10;
+    }
+    
+    let posX = 10 + (progress * 80);
+    let posY = 80 - (Math.sin(progress * Math.PI) * 50); // Arcs higher in the sky
+    
+    cel.style.left = Math.max(0, Math.min(100, posX)) + "%";
+    cel.style.top = posY + "px";
+}
+
+async function getWeather() {
+    try {
+        // Added 'sunrise' and 'sunset' to the daily API request
+        const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,apparent_temperature,wind_speed_10m,weather_code&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto`);
+        const data = await res.json();
+        const cur = data.current;
+        const daily = data.daily;
+
+        document.getElementById('temp').innerText = Math.round(cur.temperature_2m) + "°";
+        document.getElementById('feels-like').innerText = Math.round(cur.apparent_temperature) + "°";
+        document.getElementById('wind').innerText = Math.round(cur.wind_speed_10m) + " mph";
+        document.getElementById('high').innerText = "H: " + Math.round(daily.temperature_2m_max[0]) + "°";
+        document.getElementById('low').innerText = "L: " + Math.round(daily.temperature_2m_min[0]) + "°";
+        document.getElementById('condition').innerText = weatherCodes[cur.weather_code] || "Mostly Sunny";
+
+        updateVisuals(cur.weather_code, daily.sunrise[0], daily.sunset[0]);
+    } catch (e) { 
+        document.getElementById('condition').innerText = "Error Loading"; 
+        console.error(e);
+    }
+}
+
+getWeather();
+setInterval(getWeather, 1800000); // Update every 20 mins
+</script>
+
+</body>
+</html>

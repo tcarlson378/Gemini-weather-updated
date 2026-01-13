@@ -150,8 +150,8 @@ function updateVisuals(weatherCode, sunriseStr, sunsetStr) {
         root.style.setProperty('--sky-bottom', '#2b3054');
         root.style.setProperty('--sun-color', '#f4f4f4'); 
         root.style.setProperty('--sun-glow', 'rgba(255,255,255,0.2)');
-        root.style.setProperty('--star-opacity', '0.8'); 
-        root.style.setProperty('--ocean-color', '#1a202c');
+        root.style.setProperty('--star-opacity', '0.7'); 
+        root.style.setProperty('--ocean-color', '#24303B');
         clip.style.display = 'block'; 
         root.style.setProperty('--moon-phase-offset', getMoonPhaseOffset());
     } else if (isSunset) {
@@ -216,3 +216,4 @@ setInterval(getWeather, 1800000); // Update every 20 mins
 
 </body>
 </html>
+

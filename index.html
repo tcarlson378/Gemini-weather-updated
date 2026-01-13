@@ -107,6 +107,7 @@ pointer-events: none;
             <div class="info-item">
                 <span class="label">WIND</span>
                 <span id="wind" class="val">-- mph</span>
+                <div class="info-item"><span class="label">RAIN CHANCE</span><span id="rain-chance" class="val">--%</span></div>
             </div>
         </div>
     </div>
@@ -212,6 +213,8 @@ async function getWeather() {
         document.getElementById('high').innerText = "H: " + Math.round(daily.temperature_2m_max[0]) + "°";
         document.getElementById('low').innerText = "L: " + Math.round(daily.temperature_2m_min[0]) + "°";
         document.getElementById('condition').innerText = weatherCodes[cur.weather_code] || "Mostly Sunny";
+        document.getElementById("rain-chance").textContent =
+  (data.daily.precipitation_probability_max?.[0] ?? 0) + "%";
 
         updateVisuals(cur.weather_code, daily.sunrise[0], daily.sunset[0]);
     } catch (e) { 
@@ -226,6 +229,7 @@ setInterval(getWeather, 1800000); // Update every 20 mins
 
 </body>
 </html>
+
 
 
 
